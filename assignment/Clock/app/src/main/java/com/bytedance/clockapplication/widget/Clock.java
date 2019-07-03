@@ -13,7 +13,8 @@ import android.text.TextPaint;
 import android.text.style.RelativeSizeSpan;
 import android.util.AttributeSet;
 import android.view.View;
-
+import android.graphics.Rect;
+import android.os.Handler;
 import java.util.Calendar;
 import java.util.Locale;
 
@@ -55,6 +56,15 @@ public class Clock extends View {
 
     private boolean mShowAnalog = true;
 
+    private String[] clockNumbers = {"03","02","01","12","11","10","09","08","07","06","05","04"};
+    private Rect textBounds = new Rect();
+
+    private Paint paint;	/**	 * 描边线的粗细	 */
+    private boolean isRunning;
+    private Handler mHandler;
+    private Runnable clockRunnable;
+
+
     public Clock(Context context) {
         super(context);
         init(context, null);
@@ -89,6 +99,9 @@ public class Clock extends View {
         setMeasuredDimension(size + getPaddingLeft() + getPaddingRight(), size + getPaddingTop() + getPaddingBottom());
     }
 
+
+
+
     private void init(Context context, AttributeSet attrs) {
 
         this.centerInnerColor = Color.LTGRAY;
@@ -103,6 +116,17 @@ public class Clock extends View {
         this.hoursValuesColor = DEFAULT_PRIMARY_COLOR;
 
         numbersColor = Color.WHITE;
+
+        paint = new Paint();
+        paint.setAntiAlias(true);
+        mHandler = new Handler();//
+        clockRunnable = new Runnable() {
+            @Override
+            public void run() {
+                postInvalidate();
+                mHandler.postDelayed(this, 1000);
+            }
+        };
     }
 
     @Override
@@ -117,6 +141,7 @@ public class Clock extends View {
         mRadius = halfWidth;
 
         if (mShowAnalog) {
+            runClock();
             drawDegrees(canvas);
             drawHoursValues(canvas);
             drawNeedles(canvas);
@@ -129,7 +154,7 @@ public class Clock extends View {
 
     private void drawDegrees(Canvas canvas) {
 
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setStyle(Paint.Style.FILL_AND_STROKE);
         paint.setStrokeCap(Paint.Cap.ROUND);
         paint.setStrokeWidth(mWidth * DEFAULT_DEGREE_STROKE_WIDTH);
@@ -197,6 +222,54 @@ public class Clock extends View {
     private void drawHoursValues(Canvas canvas) {
         // Default Color:
         // - hoursValuesColor
+        TextPaint paint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        canvas.save();
+        paint.setFakeBoldText(false);
+        paint.setStrokeWidth(0);
+        paint.setTextSize(100);
+        paint.setColor(hoursValuesColor);
+        //paint.setTextAlign(Paint.Align.CENTER);
+        //计算12点处 数字 的坐标
+
+
+        /*int preX = getWidth() / 2;
+        int preY = getHeight() / 2 - mRadius +  250;
+        // 10为圆与数字文本之间的间距
+        // x，y才是文本真正的准确坐标，需要减去文本的自身宽、高因素
+        int x,y;
+        String num;
+        // 计算画布每次需要旋转的角度
+        int degree = 360 / clockNumbers.length;
+        for(int i = 0; i < clockNumbers.length; i++){
+            num = clockNumbers[i];
+            paint.getTextBounds(num, 0, num.length(), textBounds);
+            x = (int) (preX - paint.measureText(num) / 2);
+            y = preY - textBounds.height();//从文本的中心点处开始绘制
+            canvas.drawText(num, x, y, paint);
+            canvas.rotate(degree, getWidth() / 2, getHeight() / 2);
+            //以圆中心进行旋转
+        }*/
+
+        paint.setStyle(Paint.Style.FILL);
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        paint.setStrokeWidth(mWidth * DEFAULT_DEGREE_STROKE_WIDTH);
+        //paint.setAntiAlias(true);
+
+        int rPadded = mCenterX - (int) (mWidth * 0.13f);
+
+        for (int i = 0; i < FULL_ANGLE; i += 30 /* Step */) {
+            String num;
+            num = clockNumbers[i/30];
+            paint.getTextBounds(num, 0, num.length(), textBounds);
+            int startX = (int) (mCenterX + rPadded * Math.cos(Math.toRadians(i)));
+            int startY = (int) (mCenterX - rPadded * Math.sin(Math.toRadians(i)));
+            int x = (int) (startX - paint.measureText(num) / 2);
+            int y = startY + textBounds.height()/2;
+            canvas.drawText(num, x, y, paint);
+
+        }
+
+        canvas.restore();
 
 
     }
@@ -212,6 +285,44 @@ public class Clock extends View {
         // - secondsNeedleColor
         // - hoursNeedleColor
         // - minutesNeedleColor
+        paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        Calendar calendar = Calendar.getInstance();
+
+        int hour = calendar.get(Calendar.HOUR);// 时
+        int minute = calendar.get(Calendar.MINUTE);// 分
+        int second = calendar.get(Calendar.SECOND);// 秒
+        // 转过的角度
+        float angleHour = (hour + (float) minute / 60) * 360 / 12;
+        float angleMinute = (minute + (float) second / 60) * 360 / 60;
+        int angleSecond = second * 360 / 60;
+
+        // 绘制时针
+        paint.setColor(hoursNeedleColor);
+        paint.setStrokeWidth(20);
+        canvas.save();
+        canvas.rotate(angleHour,getWidth() / 2, getHeight() / 2);
+        canvas.drawLine(getWidth() / 2, getHeight() / 2, getWidth() / 2, getHeight() / 2 - 220, paint);
+
+        canvas.restore();
+
+
+        // 绘制分针
+        paint.setColor(minutesNeedleColor);
+        paint.setStrokeWidth(15);
+        canvas.save();
+        canvas.rotate(angleMinute,getWidth() / 2, getHeight() / 2);
+        canvas.drawLine(getWidth() / 2, getHeight() / 2, getWidth() / 2, getHeight() / 2 -320, paint);
+
+        canvas.restore();
+
+        //
+        paint.setColor(secondsNeedleColor);
+        paint.setStrokeWidth(10);
+        canvas.save();
+        canvas.rotate(angleSecond,getWidth() / 2, getHeight() / 2);
+        canvas.drawLine(getWidth() / 2, getHeight() / 2, getWidth() / 2, getHeight() / 2 - 420, paint);
+
+        canvas.restore();
 
     }
 
@@ -225,6 +336,15 @@ public class Clock extends View {
         // - centerInnerColor
         // - centerOuterColor
 
+        paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setColor(centerOuterColor);
+        canvas.drawCircle(mCenterX,mCenterX,mRadius/20,paint);
+
+        Paint paint2 = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setColor(centerInnerColor);
+        canvas.drawCircle(mCenterX,mCenterX,mRadius/25,paint2);
+
+
     }
 
     public void setShowAnalog(boolean showAnalog) {
@@ -234,6 +354,11 @@ public class Clock extends View {
 
     public boolean isShowAnalog() {
         return mShowAnalog;
+    }
+
+    private void runClock() {
+        isRunning = true;
+        mHandler.postDelayed(clockRunnable, 1000);
     }
 
 }
