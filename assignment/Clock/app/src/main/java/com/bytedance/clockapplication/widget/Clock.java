@@ -130,6 +130,12 @@ public class Clock extends View {
     }
 
     @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        mHandler.removeCallbacksAndMessages(null);
+    }
+
+    @Override
     protected void onDraw(final Canvas canvas) {
         super.onDraw(canvas);
 
